@@ -92,8 +92,8 @@ p, li { white-space: pre-wrap; }
   <widget class="QPushButton" name="exit">
    <property name="geometry">
     <rect>
-     <x>610</x>
-     <y>440</y>
+     <x>180</x>
+     <y>490</y>
      <width>89</width>
      <height>25</height>
     </rect>
@@ -184,6 +184,32 @@ p, li { white-space: pre-wrap; }
    </property>
    <property name="text">
     <string>unpack</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="encrypt">
+   <property name="geometry">
+    <rect>
+     <x>600</x>
+     <y>440</y>
+     <width>89</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>encrypt</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="decrypt">
+   <property name="geometry">
+    <rect>
+     <x>600</x>
+     <y>490</y>
+     <width>89</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>decrypt</string>
    </property>
   </widget>
  </widget>

@@ -21,6 +21,7 @@
 #include <sys/time.h>
 
 #include"huffman.h"
+//#include"en_decryption.h"
 
 using namespace std;
 
@@ -46,6 +47,10 @@ Widget::Widget(QWidget *parent)
     connect(ui->pack, &QPushButton::clicked, this, &Widget::Pack);
 
     connect(ui->unpack, &QPushButton::clicked, this, &Widget::Unpack);
+
+    connect(ui->encrypt, &QPushButton::clicked, this, &Widget::Encrypt);
+
+    connect(ui->decrypt, &QPushButton::clicked, this, &Widget::Decrypt);
 
 }
 
@@ -126,7 +131,13 @@ void Widget::Compress()
     string dest = (ui->dest_text->toPlainText()).toStdString();
     char *src_char = (char*)src.data();
     char *dest_char = (char*)dest.data();
-    backup(mode, src_char,dest_char);
+//    backup(mode, src_char,dest_char);
+    char buffer[100];
+    chdir(src_char);
+    chdir("..");
+    sprintf(buffer,"zip -r %s %s",dest_char, strrchr(src_char,'/')+1);
+    printf("%s",buffer);
+    system(buffer);
 }
 
 void Widget::Uncompress()
@@ -136,7 +147,10 @@ void Widget::Uncompress()
     string dest = (ui->dest_text->toPlainText()).toStdString();
     char *src_char = (char*)src.data();
     char *dest_char = (char*)dest.data();
-    backup(mode, src_char,dest_char);
+//    backup(mode, src_char,dest_char);
+    char buffer[100];
+    sprintf(buffer,"unzip %s -d %s",src_char, dest_char);
+    system(buffer);
 }
 
 
@@ -147,7 +161,15 @@ void Widget::Pack()
     char *src_char = (char*)src.data();
     char *dest_char = (char*)dest.data();
     char buffer[100];
-    sprintf(buffer,"tar -cvf %s %s",dest_char, src_char);
+    sprintf(buffer,"tar -cvf %s -C %s",dest_char, src_char);
+    //replace '/' to ' '
+    for(int i=strlen(buffer)-1;i>=0;i--)
+    {
+        if(buffer[i]=='/'){
+            buffer[i] = ' ';
+            break;
+        }
+    }
     system(buffer);
 }
 
@@ -162,7 +184,20 @@ void Widget::Unpack()
     system(buffer);
 }
 
+void Widget::Encrypt()
+{
+    char mode='e';
+    string src = (ui->src_text->toPlainText()).toStdString();
+    string dest = (ui->dest_text->toPlainText()).toStdString();
+    char *src_char = (char*)src.data();
+    char *dest_char = (char*)dest.data();
+    backup(mode, src_char,dest_char);
+}
 
+void Widget::Decrypt()
+{
+
+}
 
 
 //修改路径
@@ -179,24 +214,28 @@ void changeAttr(const char *src, const char *dst)
     struct stat attr_of_src;
     lstat(src, &attr_of_src);
     //修改文件属性
+
+
     chmod(dst, attr_of_src.st_mode);
     //修改文件用户组
     chown(dst, attr_of_src.st_uid, attr_of_src.st_gid);
 
     //修改文件访问、修改时间
     struct timeval time_buf[2];
-    time_buf[1].tv_sec = attr_of_src.st_mtime;
-    time_buf[0].tv_sec = attr_of_src.st_atime;
+    time_buf[1].tv_sec = attr_of_src.st_mtim.tv_sec;
+    time_buf[1].tv_usec = attr_of_src.st_mtim.tv_nsec/1000;
+    time_buf[0].tv_sec = attr_of_src.st_atim.tv_sec;
+    time_buf[0].tv_usec = attr_of_src.st_atim.tv_nsec/1000;
     if(lutimes(dst, time_buf) == -1)
     {
         printf("%s\n", dst);
         perror("lutimes");
     }
 
-    struct utimbuf tbuf;
-    tbuf.actime = attr_of_src.st_atime;
-    tbuf.modtime = attr_of_src.st_mtime;
-    utime(dst, &tbuf);
+//    struct utimbuf tbuf;
+//    tbuf.actime = attr_of_src.st_atime;
+//    tbuf.modtime = attr_of_src.st_mtime;
+//    utime(dst, &tbuf);
 
     struct stat dst_attr_of_src;
     lstat(dst, &dst_attr_of_src);
@@ -285,8 +324,12 @@ void search_dfs(char mode, char *src_path, char *dest_path)
             // printf("src file: %s\n", src_file);
             // printf("dest file: %s\n", dest_file);
             if(mode == 'n') copy_file(src_file, dest_file);
-            else if(mode=='z') {compress(src_file, dest_file); changeAttr(src_file, dest_file);}
-            else if(mode=='u') {uncompress(src_file, dest_file); changeAttr(src_file, dest_file);}
+            else if(mode=='z') {compress(src_file, dest_file);
+                //changeAttr(src_file, dest_file);
+            }
+            else if(mode=='u') {uncompress(src_file, dest_file);
+                //changeAttr(src_file, dest_file);
+            }
         }
         else if (S_ISDIR(state_of_entry.st_mode)) //目录
         {
@@ -301,18 +344,18 @@ void search_dfs(char mode, char *src_path, char *dest_path)
             copy_dir(src, dest);
             search_dfs(mode, src, dest);
         }
-//        else //pipe file
-//        {
-//            char src_pipe[1024];
-//            char dest_pipe[1024];
-//            strcpy(src_pipe, src_path);
-//            change_path(src_pipe, entry->d_name);
-//            strcpy(dest_pipe, dest_path);
-//            change_path(dest_pipe, entry->d_name);
-//            if(mode == 'n') copy_file(src_pipe, dest_pipe);
-//            else if(mode=='z') {compress(src_pipe, dest_pipe); changeAttr(src_pipe, dest_pipe);}
-//            else if(mode=='u') {uncompress(src_pipe, dest_pipe); changeAttr(src_pipe, dest_pipe);}
-//        }
+        else //pipe file
+        {
+            char src_pipe[1024];
+            char dest_pipe[1024];
+            strcpy(src_pipe, src_path);
+            change_path(src_pipe, entry->d_name);
+            strcpy(dest_pipe, dest_path);
+            change_path(dest_pipe, entry->d_name);
+            char buffer[100];
+            sprintf(buffer,"mkfifo %s", dest_pipe);
+            system(buffer);
+        }
     }
 }
 
@@ -371,6 +414,8 @@ int backup(char mode, char *src_path, char *dest_path)
         if(mode == 'n') copy_file(src_path, dest_path);
         else if(mode=='z') compress(src_path, dest_path);
         else if(mode=='u') uncompress(src_path, dest_path);
+//        else if(mode=='e') encrypt(src_path, dest_path);
+//        else if(mode=='d') decrypt(src_path, dest_path);
     }
 
     return 0;

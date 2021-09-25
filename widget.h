@@ -30,6 +30,8 @@ public:
     void Uncompress();
     void Pack();
     void Unpack();
+    void Encrypt();
+    void Decrypt();
 
 private slots:
 
