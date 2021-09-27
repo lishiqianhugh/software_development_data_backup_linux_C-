@@ -32,6 +32,9 @@ public:
     void Unpack();
     void Encrypt();
     void Decrypt();
+    QString enpass();
+    QString depass();
+    int valid();
 
 private slots:
 

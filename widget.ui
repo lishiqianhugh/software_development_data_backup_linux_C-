@@ -89,7 +89,7 @@ p, li { white-space: pre-wrap; }
     <string>destination</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="exit">
+  <widget class="QPushButton" name="valid_button">
    <property name="geometry">
     <rect>
      <x>180</x>
@@ -99,7 +99,7 @@ p, li { white-space: pre-wrap; }
     </rect>
    </property>
    <property name="text">
-    <string>exit</string>
+    <string>valid</string>
    </property>
   </widget>
   <widget class="QPushButton" name="selectfile">
@@ -210,6 +210,42 @@ p, li { white-space: pre-wrap; }
    </property>
    <property name="text">
     <string>decrypt</string>
+   </property>
+  </widget>
+  <widget class="QTextEdit" name="mode">
+   <property name="geometry">
+    <rect>
+     <x>180</x>
+     <y>380</y>
+     <width>104</width>
+     <height>31</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_3">
+   <property name="geometry">
+    <rect>
+     <x>100</x>
+     <y>390</y>
+     <width>67</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>mode</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_4">
+   <property name="geometry">
+    <rect>
+     <x>290</x>
+     <y>390</y>
+     <width>121</width>
+     <height>17</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>txt/pipe/soft/&quot;&quot;</string>
    </property>
   </widget>
  </widget>

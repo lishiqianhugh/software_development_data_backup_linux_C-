@@ -19,6 +19,7 @@
 #include <utime.h>
 #include <time.h>
 #include <sys/time.h>
+#include <qinputdialog.h>
 
 #include"huffman.h"
 //#include"en_decryption.h"
@@ -26,6 +27,11 @@
 using namespace std;
 
 int backup(char mode, char *src_path, char *dest_path);
+
+void search_dfs_valid(int *fasle_num, char * src_path, char * dest_char);
+Huffman solver;
+//static int uncompress(char* input, char* filename);
+//static int compress(char* input, char* filename);
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
@@ -51,6 +57,8 @@ Widget::Widget(QWidget *parent)
     connect(ui->encrypt, &QPushButton::clicked, this, &Widget::Encrypt);
 
     connect(ui->decrypt, &QPushButton::clicked, this, &Widget::Decrypt);
+
+    connect(ui->valid_button, &QPushButton::clicked, this, &Widget::valid);
 
 }
 
@@ -117,6 +125,13 @@ QString Widget::selectDestFilename()
 void Widget::Backup()
 {
     char mode='n';
+    if(ui->mode){
+        string mod = (ui->mode->toPlainText()).toStdString();
+        char *mode_char = (char *)mod.data();
+        if(strcmp(mode_char, "txt")==0) mode = 't';
+        else if (strcmp(mode_char, "pipe")==0) mode = 'p';
+        else if (strcmp(mode_char, "soft")==0) mode = 's';
+    }
     string src = (ui->src_text->toPlainText()).toStdString();
     string dest = (ui->dest_text->toPlainText()).toStdString();
     char *src_char = (char*)src.data();
@@ -131,13 +146,13 @@ void Widget::Compress()
     string dest = (ui->dest_text->toPlainText()).toStdString();
     char *src_char = (char*)src.data();
     char *dest_char = (char*)dest.data();
-//    backup(mode, src_char,dest_char);
-    char buffer[100];
-    chdir(src_char);
-    chdir("..");
-    sprintf(buffer,"zip -r %s %s",dest_char, strrchr(src_char,'/')+1);
-    printf("%s",buffer);
-    system(buffer);
+    backup(mode, src_char,dest_char);
+//    char buffer[100];
+//    chdir(src_char);
+//    chdir("..");
+//    sprintf(buffer,"zip -r %s %s",dest_char, strrchr(src_char,'/')+1);
+//    printf("%s",buffer);
+//    system(buffer);
 }
 
 void Widget::Uncompress()
@@ -147,10 +162,10 @@ void Widget::Uncompress()
     string dest = (ui->dest_text->toPlainText()).toStdString();
     char *src_char = (char*)src.data();
     char *dest_char = (char*)dest.data();
-//    backup(mode, src_char,dest_char);
-    char buffer[100];
-    sprintf(buffer,"unzip %s -d %s",src_char, dest_char);
-    system(buffer);
+    backup(mode, src_char,dest_char);
+//    char buffer[100];
+//    sprintf(buffer,"unzip %s -d %s",src_char, dest_char);
+//    system(buffer);
 }
 
 
@@ -189,16 +204,64 @@ void Widget::Encrypt()
     char mode='e';
     string src = (ui->src_text->toPlainText()).toStdString();
     string dest = (ui->dest_text->toPlainText()).toStdString();
+    string password = (Widget::enpass()).toStdString();
     char *src_char = (char*)src.data();
     char *dest_char = (char*)dest.data();
-    backup(mode, src_char,dest_char);
+    char *passchar = (char*)password.data();
+    char buffer[100];
+    sprintf(buffer,"openssl enc -e -aes256 -in %s -out %s -pass pass:%s",src_char, dest_char, passchar);
+    system(buffer);
 }
 
 void Widget::Decrypt()
 {
+    char mode='e';
+    string src = (ui->src_text->toPlainText()).toStdString();
+    string dest = (ui->dest_text->toPlainText()).toStdString();
+    string password = (Widget::enpass()).toStdString();
+    char *src_char = (char*)src.data();
+    char *dest_char = (char*)dest.data();
+    char *passchar = (char*)password.data();
+    char buffer[100];
+    sprintf(buffer,"openssl enc -d -aes256 -in %s -out %s -pass pass:%s",src_char, dest_char, passchar);
+    system(buffer);}
 
+QString Widget::enpass()
+{
+    bool ok = false;
+    QString epass = QInputDialog::getText(this, tr("Encrypt"),tr("PLease input password"),QLineEdit::Password,"123456",&ok);
+    if(ok && !epass.isEmpty())
+    {
+        return epass;
+    }
 }
 
+QString Widget::depass()
+{
+    bool ok = false;
+    QString epass = QInputDialog::getText(this, tr("Encrypt"),tr("PLease input password"),QLineEdit::Password,"123456",&ok);
+    if(ok && !epass.isEmpty())
+    {
+        return epass;
+    }
+}
+
+int Widget::valid()
+{
+    string src = (ui->src_text->toPlainText()).toStdString();
+    string dest = (ui->dest_text->toPlainText()).toStdString();
+    char *src_char = (char*)src.data();
+    char *dest_char = (char*)dest.data();
+    int false_num = 0;
+    search_dfs_valid(&false_num, src_char, dest_char);
+    if(false_num==0){
+        printf("Correct\n");
+    }
+    else{
+        printf("Found %d errors",false_num);
+    }
+    return false_num;
+}
 
 //修改路径
 void change_path(char *src, char *cat)
@@ -231,11 +294,6 @@ void changeAttr(const char *src, const char *dst)
         printf("%s\n", dst);
         perror("lutimes");
     }
-
-//    struct utimbuf tbuf;
-//    tbuf.actime = attr_of_src.st_atime;
-//    tbuf.modtime = attr_of_src.st_mtime;
-//    utime(dst, &tbuf);
 
     struct stat dst_attr_of_src;
     lstat(dst, &dst_attr_of_src);
@@ -311,7 +369,13 @@ void search_dfs(char mode, char *src_path, char *dest_path)
             change_path(dest_file, entry->d_name);
             // printf("src file: %s\n", src_file);
             // printf("dest file: %s\n", dest_file);
-            copy_sln(src_file, dest_file);
+            if(mode=='n'||mode=='s') copy_sln(src_file, dest_file);
+            else if(mode=='z') {solver.compress(src_file, dest_file);
+                changeAttr(src_file, dest_file);
+            }
+            else if(mode=='u') {solver.uncompress(src_file, dest_file);
+                changeAttr(src_file, dest_file);
+            }
         }
         else if (S_ISREG(state_of_entry.st_mode)) //普通文件
         {
@@ -323,12 +387,12 @@ void search_dfs(char mode, char *src_path, char *dest_path)
             change_path(dest_file, entry->d_name);
             // printf("src file: %s\n", src_file);
             // printf("dest file: %s\n", dest_file);
-            if(mode == 'n') copy_file(src_file, dest_file);
-            else if(mode=='z') {compress(src_file, dest_file);
-                //changeAttr(src_file, dest_file);
+            if(mode == 'n' || mode == 't') copy_file(src_file, dest_file);
+            else if(mode=='z') {solver.compress(src_file, dest_file);
+                changeAttr(src_file, dest_file);
             }
-            else if(mode=='u') {uncompress(src_file, dest_file);
-                //changeAttr(src_file, dest_file);
+            else if(mode=='u') {solver.uncompress(src_file, dest_file);
+                changeAttr(src_file, dest_file);
             }
         }
         else if (S_ISDIR(state_of_entry.st_mode)) //目录
@@ -346,18 +410,98 @@ void search_dfs(char mode, char *src_path, char *dest_path)
         }
         else //pipe file
         {
-            char src_pipe[1024];
-            char dest_pipe[1024];
-            strcpy(src_pipe, src_path);
-            change_path(src_pipe, entry->d_name);
-            strcpy(dest_pipe, dest_path);
-            change_path(dest_pipe, entry->d_name);
-            char buffer[100];
-            sprintf(buffer,"mkfifo %s", dest_pipe);
-            system(buffer);
+            if(mode=='n'||mode=='p'||mode=='z'||mode=='u'){
+                char src_pipe[1024];
+                char dest_pipe[1024];
+                strcpy(src_pipe, src_path);
+                change_path(src_pipe, entry->d_name);
+                strcpy(dest_pipe, dest_path);
+                change_path(dest_pipe, entry->d_name);
+                char buffer[100];
+                sprintf(buffer,"mkfifo %s", dest_pipe);
+                system(buffer);
+            }
         }
     }
 }
+
+int val(char *src_file, char *dest_file)
+{
+    int src_fd = open(src_file, O_RDONLY);
+    int dest_fd = open(dest_file, O_RDONLY);
+
+    char src_buf, dest_buf;
+    while (read(src_fd, &src_buf, sizeof(src_buf)) > 0)
+    {
+        read(dest_fd, &dest_buf, sizeof(dest_buf));
+        if(src_buf!=dest_buf){
+            return 1;
+        }
+    }
+
+//    changeAttr(src_file, dest_file);
+
+    close(src_fd);
+    close(dest_fd);
+    return 0;
+}
+
+void search_dfs_valid(int *false_num, char *src_path, char *dest_path)
+{
+    printf("Validating directory:    %s\n", getcwd(NULL, 0));
+    DIR *src_dir = opendir(src_path);
+    DIR *dest_dir = opendir(dest_path);
+    struct dirent *entry = NULL;
+    struct stat state_of_entry;
+    while ((entry = readdir(src_dir)) != NULL)
+    {
+//    	chdir(src_path);
+        char entry_path[100];
+        strcpy(entry_path, src_path);
+        change_path(entry_path, entry->d_name);
+        lstat(entry_path, &state_of_entry);
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+        printf("entry->d_name: %s \n", entry->d_name);
+        if (S_ISLNK(state_of_entry.st_mode)) //符号链接
+        {
+            char src_file[1024];
+            char dest_file[1024];
+            strcpy(src_file, src_path);
+            change_path(src_file, entry->d_name);
+            strcpy(dest_file, dest_path);
+            change_path(dest_file, entry->d_name);
+            // printf("src file: %s\n", src_file);
+            // printf("dest file: %s\n", dest_file);
+            *false_num += val(src_file, dest_file);
+        }
+        else if (S_ISREG(state_of_entry.st_mode)) //普通文件
+        {
+            char src_file[1024];
+            char dest_file[1024];
+            strcpy(src_file, src_path);
+            change_path(src_file, entry->d_name);
+            strcpy(dest_file, dest_path);
+            change_path(dest_file, entry->d_name);
+            // printf("src file: %s\n", src_file);
+            // printf("dest file: %s\n", dest_file);
+            *false_num += val(src_file, dest_file);
+        }
+        else if (S_ISDIR(state_of_entry.st_mode)) //目录
+        {
+            char src[1024];
+            char dest[1024];
+            strcpy(src, src_path);
+            change_path(src, entry->d_name);
+            strcpy(dest, dest_path);
+            change_path(dest, entry->d_name);
+            // printf("src dir: %s\n", src);
+            // printf("dest dir: %s\n", dest);
+            search_dfs_valid(false_num, src, dest);
+        }
+    }
+}
+
 
 int backup(char mode, char *src_path, char *dest_path)
 {
@@ -412,8 +556,8 @@ int backup(char mode, char *src_path, char *dest_path)
             strcat(dest, dest_path);
         }
         if(mode == 'n') copy_file(src_path, dest_path);
-        else if(mode=='z') compress(src_path, dest_path);
-        else if(mode=='u') uncompress(src_path, dest_path);
+        else if(mode=='z') solver.compress(src_path, dest_path);
+        else if(mode=='u') solver.uncompress(src_path, dest_path);
 //        else if(mode=='e') encrypt(src_path, dest_path);
 //        else if(mode=='d') decrypt(src_path, dest_path);
     }
